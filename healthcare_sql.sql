@@ -1,0 +1,167 @@
+-- I started with data cleaning first ( created a table from the main table so as to have something to fall back on if error occurs)
+CREATE TABLE `healthcare_en` (
+  `Name` text,
+  `Age` int DEFAULT NULL,
+  `Gender` text,
+  `Blood Type` text,
+  `Medical Condition` text,
+  `Date of Admission` text,
+  `Doctor` text,
+  `Hospital` text,
+  `Insurance Provider` text,
+  `Billing Amount` double DEFAULT NULL,
+  `Room Number` int DEFAULT NULL,
+  `Admission Type` text,
+  `Discharge Date` text,
+  `Medication` text,
+  `Test Results` text,
+  `Row number` int
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Inserted the main table contents into the new table along with the row number columc to remove duplicates
+
+INSERT INTO healthcare_en
+ select *, row_number() over (partition by `Name`, Age, Gender, `Blood Type`, `Medical Condition`, `Date of Admission`, 
+                               Doctor, Hospital, `Insurance Provider`, `Billing Amount`, `Room Number`, `Admission Type`,
+                               `Discharge Date`, Medication, `Test Results`) as ranks
+ from healthcare;
+ 
+ -- Deleted other records from the ones with duplicates
+ DELETE 
+ from healthcare_en 
+ where `row number` > 1;
+ 
+ -- Make the Name column look proper 
+ update healthcare_en
+ set `name` = concat(upper(left(trim(`name`),1)), lower(substring(trim(`name`),2))) ;
+ 
+ 
+--  change date from text-format  to date-type
+update healthcare_en
+set `date of admission`= str_to_date(`date of admission`, '%m/%d/%Y');
+
+ALTER TABLE healthcare_en
+MODIFY COLUMN  `date of admission` date;
+
+
+-- some values in the hospital column had ',' in front of them, so i used the (trim) function to remove trailings
+update healthcare_en
+set hospital = trim(',' from hospital);
+
+ 
+-- to round the billing values to 2 decimal places
+update healthcare_en
+set `billing amount` = round(`billing amount`,2);
+
+
+-- to change the discharge-date from a text-format to date - format
+update healthcare_en
+set `discharge date`= str_to_date(`discharge date`, '%m/%d/%Y')
+;
+ALTER TABLE healthcare_en
+modify `Discharge Date` date ;
+
+
+-- lastly to delete the row_number column which was assigned to remove duplicates 
+alter table healthcare_en
+DROP column `row number`;
+
+
+-- to know what age bracket spend the most money when it comes to health issues 
+with cte1 as 
+( 
+            select `name`,
+		              age,
+                      (case when age between 0 and 17 then 'young'
+                             when age between 18 and 50 then 'Adult'
+                                else 'Old' end 
+											   ) as Age_Bracket,
+                       `billing amount`
+               from healthcare_en
+)
+select age_bracket,
+       round(sum(`billing amount`),2) AS Amount_spent
+from cte1
+group by 1
+order by 2 desc;
+
+-- to know which of the medications are used the most so they can be made available at heaper prices or with discounts
+
+select medication, count(medication)
+from healthcare_en
+group by 1
+order by 2 desc;
+
+-- to get insights on what month of the year people got addmitted the most
+select 
+      month(`date of admission`) as Month, 
+      count(*) as number_of_admissions
+      
+from healthcare_en
+where year(`date of admission`) = 2022
+group by month(`date of admission`)
+order by 1
+;
+
+
+
+-- Average lenght of stay by medical condition, gender and blood type
+WITH cet as(
+select `Medical Condition`,gender,`Blood Type`, timestampdiff(day, `date of admission`, `discharge date`) as stay_period
+from healthcare_en
+)
+select `Medical Condition`,gender,`Blood Type`, round(avg(stay_period)) as stay_period
+from cet
+group by `medical condition`, gender,`Blood Type`
+order by `medical condition`, gender,`Blood Type`;
+
+
+
+
+
+
+
+ SELECT *
+ FROM healthcare_en;
+ 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
